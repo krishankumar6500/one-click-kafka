@@ -1,0 +1,8 @@
+---
+- name: One Click Apache Kafka Deployment
+  hosts: kafka
+  become: true
+  gather_facts: true
+
+  roles:
+    - kafka

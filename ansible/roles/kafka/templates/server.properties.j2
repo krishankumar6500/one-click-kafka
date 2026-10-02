@@ -1,0 +1,36 @@
+# ==========================================================
+# Apache Kafka 3.9.2 - KRaft Configuration
+# One-Click Kafka Deployment
+# ==========================================================
+
+process.roles=broker,controller
+node.id={{ node_id }}
+
+controller.quorum.voters={{ kafka_controller_quorum_voters }}
+
+listeners=PLAINTEXT://:{{ kafka_broker_port }},CONTROLLER://:{{ kafka_controller_port }}
+
+advertised.listeners=PLAINTEXT://{{ ansible_host }}:{{ kafka_broker_port }}
+
+listener.security.protocol.map=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+
+controller.listener.names=CONTROLLER
+inter.broker.listener.name=PLAINTEXT
+
+log.dirs={{ kafka_data_dir }}
+
+num.partitions=2
+
+default.replication.factor=2
+min.insync.replicas=1
+
+offsets.topic.replication.factor=2
+
+transaction.state.log.replication.factor=2
+transaction.state.log.min.isr=1
+
+group.initial.rebalance.delay.ms=0
+
+auto.create.topics.enable=false
+
+log.retention.hours=168

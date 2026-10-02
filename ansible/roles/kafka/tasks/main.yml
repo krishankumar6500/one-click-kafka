@@ -1,0 +1,114 @@
+---
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - "{{ kafka_java_package }}"
+      - curl
+      - tar
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+- name: Create Kafka group
+  ansible.builtin.group:
+    name: "{{ kafka_group }}"
+    state: present
+
+- name: Create Kafka user
+  ansible.builtin.user:
+    name: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+    state: present
+
+- name: Create Kafka directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: "0755"
+  loop:
+    - "{{ kafka_install_dir }}"
+    - "{{ kafka_data_dir }}"
+    - "{{ kafka_config_dir }}"
+
+- name: Download Kafka
+  ansible.builtin.get_url:
+    url: "{{ kafka_download_url }}"
+    dest: "/tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+    mode: "0644"
+    timeout: 60
+
+- name: Extract Kafka
+  ansible.builtin.unarchive:
+    src: "/tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+    dest: /opt
+    remote_src: true
+    creates: "/opt/kafka_{{ kafka_scala_version }}-{{ kafka_version }}"
+
+- name: Create Kafka symlink
+  ansible.builtin.file:
+    src: "/opt/kafka_{{ kafka_scala_version }}-{{ kafka_version }}"
+    dest: "{{ kafka_install_dir }}"
+    state: link
+    force: true
+
+- name: Set Kafka installation ownership
+  ansible.builtin.file:
+    path: "/opt/kafka_{{ kafka_scala_version }}-{{ kafka_version }}"
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    recurse: true
+
+- name: Deploy Kafka server configuration
+  ansible.builtin.template:
+    src: server.properties.j2
+    dest: "{{ kafka_config_dir }}/server.properties"
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: "0644"
+  notify: Restart Kafka
+
+- name: Store KRaft cluster ID
+  ansible.builtin.copy:
+    content: "{{ kafka_cluster_id }}\n"
+    dest: /etc/kafka/cluster.id
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: "0644"
+
+- name: Check whether Kafka storage is already formatted
+  ansible.builtin.stat:
+    path: "{{ kafka_data_dir }}/meta.properties"
+  register: kafka_storage
+
+- name: Format Kafka KRaft storage
+  ansible.builtin.command:
+    cmd: >
+      {{ kafka_install_dir }}/bin/kafka-storage.sh
+      format
+      -t {{ kafka_cluster_id }}
+      -c {{ kafka_config_dir }}/server.properties
+  become_user: "{{ kafka_user }}"
+  when: not kafka_storage.stat.exists
+
+- name: Deploy Kafka systemd service
+  ansible.builtin.template:
+    src: kafka.service.j2
+    dest: /etc/systemd/system/kafka.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart Kafka
+
+- name: Enable and start Kafka
+  ansible.builtin.systemd:
+    name: kafka
+    enabled: true
+    state: started
+    daemon_reload: true
