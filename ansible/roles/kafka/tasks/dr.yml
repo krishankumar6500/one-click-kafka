@@ -1,0 +1,16 @@
+---
+- name: Install Kafka DR backup script
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/kafka-dr-backup.sh"
+    dest: /usr/local/bin/kafka-dr-backup.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install Kafka DR restore script
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/kafka-dr-restore.sh"
+    dest: /usr/local/bin/kafka-dr-restore.sh
+    owner: root
+    group: root
+    mode: '0755'

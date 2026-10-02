@@ -148,3 +148,7 @@
     enabled: true
     state: started
     daemon_reload: true
+
+
+- name: Configure Kafka DR scripts
+  ansible.builtin.include_tasks: dr.yml
