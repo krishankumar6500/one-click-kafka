@@ -1,3 +1,5 @@
+@Library('oneClickKafka') _
+
 pipeline {
     agent any
 
@@ -9,6 +11,9 @@ pipeline {
     environment {
         ANSIBLE_DIR = 'ansible'
         INVENTORY   = 'ansible/inventory.ini'
+
+        KAFKA1 = '172.31.27.172'
+        KAFKA2 = '172.31.20.48'
     }
 
     stages {
@@ -43,11 +48,8 @@ pipeline {
                     cd terraform
 
                     terraform init -input=false
-
                     terraform fmt -check
-
                     terraform validate
-
                     terraform plan -input=false
 
                     echo
@@ -64,27 +66,13 @@ pipeline {
             }
         }
 
-        stage('Ansible Syntax Check') {
+        stage('Kafka Deployment - Shared Library') {
             steps {
-                sh '''
-                    cd "$ANSIBLE_DIR"
-                    ansible-playbook \
-                      -i inventory.ini \
-                      site.yml \
-                      --syntax-check
-                '''
-            }
-        }
-
-        stage('Kafka Deployment') {
-            steps {
-                sh '''
-                    cd "$ANSIBLE_DIR"
-
-                    ansible-playbook \
-                      -i inventory.ini \
-                      site.yml
-                '''
+                kafkaDeploy(
+                    ansibleDir: 'ansible',
+                    inventory: 'inventory.ini',
+                    playbook: 'site.yml'
+                )
             }
         }
 
@@ -95,11 +83,15 @@ pipeline {
                     echo "       KAFKA FUNCTIONAL TEST"
                     echo "======================================"
 
-                    for host in 172.31.27.172 172.31.20.48; do
+                    for host in "$KAFKA1" "$KAFKA2"; do
                         echo
                         echo "Testing Kafka broker: $host"
 
-                        ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key                           -o BatchMode=yes                           -o StrictHostKeyChecking=no                           ubuntu@$host                           "sudo /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server $host:9092 | head -5"
+                        ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key \
+                          -o BatchMode=yes \
+                          -o StrictHostKeyChecking=no \
+                          ubuntu@$host \
+                          "sudo /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server $host:9092 | head -5"
                     done
 
                     echo
@@ -108,51 +100,21 @@ pipeline {
             }
         }
 
-        stage('Kafka Health Check') {
+        stage('Kafka Health Check - Shared Library') {
             steps {
-                sh '''
-                    echo "===== KAFKA HEALTH CHECK ====="
-
-                    ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key \
-                      -o BatchMode=yes \
-                      -o StrictHostKeyChecking=no \
-                      ubuntu@172.31.27.172 \
-                      "sudo systemctl is-active kafka"
-
-                    ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key \
-                      -o BatchMode=yes \
-                      -o StrictHostKeyChecking=no \
-                      ubuntu@172.31.20.48 \
-                      "sudo systemctl is-active kafka"
-
-                    echo "===== BOTH KAFKA NODES HEALTHY ====="
-                '''
+                kafkaHealthCheck([
+                    env.KAFKA1,
+                    env.KAFKA2
+                ])
             }
         }
 
-        stage('Kafka DR Backup') {
+        stage('Kafka DR Backup - Shared Library') {
             steps {
-                sh '''
-                    echo "======================================"
-                    echo "        KAFKA DR BACKUP"
-                    echo "======================================"
-
-                    for host in 172.31.27.172 172.31.20.48; do
-                        echo
-                        echo "Creating backup on $host"
-
-                        ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key \
-                          -o BatchMode=yes \
-                          -o StrictHostKeyChecking=no \
-                          ubuntu@$host \
-                          "sudo /usr/local/bin/kafka-dr-backup.sh"
-
-                        echo "Backup completed on $host"
-                    done
-
-                    echo
-                    echo "===== KAFKA DR BACKUP SUCCESSFUL ====="
-                '''
+                kafkaDrBackup([
+                    env.KAFKA1,
+                    env.KAFKA2
+                ])
             }
         }
     }
