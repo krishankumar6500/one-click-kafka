@@ -10,19 +10,35 @@ sudo mkdir -p "$BACKUP_DIR"
 echo "===== KAFKA DR BACKUP ====="
 echo "Backup: $BACKUP_FILE"
 
-# Create a consistent filesystem backup by briefly stopping Kafka.
+echo "Stopping Kafka for consistent backup..."
 sudo systemctl stop kafka
 
-cleanup() {
+restart_kafka() {
+    echo "Starting Kafka..."
     sudo systemctl start kafka
 }
-trap cleanup EXIT
+
+trap restart_kafka EXIT
 
 sudo tar -czf "$BACKUP_FILE" \
     /etc/kafka \
     /var/lib/kafka/data
 
 sudo test -s "$BACKUP_FILE"
+
+echo
+echo "===== BACKUP CREATED ====="
+sudo ls -lh "$BACKUP_FILE"
+
+# Start Kafka BEFORE health verification
+sudo systemctl start kafka
+
+# Kafka is running, so no EXIT trap is needed anymore
+trap - EXIT
+
+echo
+echo "===== KAFKA SERVICE VERIFICATION ====="
+sudo systemctl is-active kafka
 
 sudo find "$BACKUP_DIR" \
     -type f \
@@ -31,9 +47,4 @@ sudo find "$BACKUP_DIR" \
     -delete
 
 echo
-echo "===== BACKUP CREATED ====="
-sudo ls -lh "$BACKUP_FILE"
-
-echo
-echo "===== KAFKA SERVICE RESTORE ====="
-sudo systemctl is-active kafka
+echo "===== KAFKA DR BACKUP SUCCESSFUL ====="
