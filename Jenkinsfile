@@ -56,6 +56,14 @@ pipeline {
             }
         }
 
+        stage('Deployment Approval') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    input message: 'Approve Kafka deployment?', ok: 'Deploy Kafka'
+                }
+            }
+        }
+
         stage('Ansible Syntax Check') {
             steps {
                 sh '''
@@ -76,6 +84,26 @@ pipeline {
                     ansible-playbook \
                       -i inventory.ini \
                       site.yml
+                '''
+            }
+        }
+
+        stage('Kafka Functional Test') {
+            steps {
+                sh '''
+                    echo "======================================"
+                    echo "       KAFKA FUNCTIONAL TEST"
+                    echo "======================================"
+
+                    for host in 172.31.27.172 172.31.20.48; do
+                        echo
+                        echo "Testing Kafka broker: $host"
+
+                        ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key                           -o BatchMode=yes                           -o StrictHostKeyChecking=no                           ubuntu@$host                           "sudo /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server $host:9092 | head -5"
+                    done
+
+                    echo
+                    echo "===== KAFKA FUNCTIONAL TEST PASSED ====="
                 '''
             }
         }
