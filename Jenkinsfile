@@ -33,6 +33,29 @@ pipeline {
             }
         }
 
+        stage('Terraform Infrastructure Check') {
+            steps {
+                sh '''
+                    echo "======================================"
+                    echo "      TERRAFORM INFRASTRUCTURE"
+                    echo "======================================"
+
+                    cd terraform
+
+                    terraform init -input=false
+
+                    terraform fmt -check
+
+                    terraform validate
+
+                    terraform plan -input=false
+
+                    echo
+                    echo "===== TERRAFORM CHECK SUCCESSFUL ====="
+                '''
+            }
+        }
+
         stage('Ansible Syntax Check') {
             steps {
                 sh '''
