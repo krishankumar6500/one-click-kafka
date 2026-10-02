@@ -17,7 +17,6 @@ restart_kafka() {
     echo "Starting Kafka..."
     sudo systemctl start kafka
 }
-
 trap restart_kafka EXIT
 
 sudo tar -czf "$BACKUP_FILE" \
@@ -30,21 +29,37 @@ echo
 echo "===== BACKUP CREATED ====="
 sudo ls -lh "$BACKUP_FILE"
 
-# Start Kafka BEFORE health verification
+echo
+echo "===== STARTING KAFKA ====="
 sudo systemctl start kafka
 
-# Kafka is running, so no EXIT trap is needed anymore
 trap - EXIT
 
-echo
-echo "===== KAFKA SERVICE VERIFICATION ====="
-sudo systemctl is-active kafka
+echo "Waiting for Kafka service to become active..."
 
-sudo find "$BACKUP_DIR" \
-    -type f \
-    -name "kafka-backup-*.tar.gz" \
-    -mtime +7 \
-    -delete
+for i in {1..30}; do
+    if sudo systemctl is-active --quiet kafka; then
+        echo
+        echo "===== KAFKA SERVICE ACTIVE ====="
+        sudo systemctl is-active kafka
+
+        sudo find "$BACKUP_DIR" \
+            -type f \
+            -name "kafka-backup-*.tar.gz" \
+            -mtime +7 \
+            -delete
+
+        echo
+        echo "===== KAFKA DR BACKUP SUCCESSFUL ====="
+        exit 0
+    fi
+
+    echo "Kafka is starting... attempt $i/30"
+    sleep 2
+done
 
 echo
-echo "===== KAFKA DR BACKUP SUCCESSFUL ====="
+echo "===== KAFKA FAILED TO BECOME ACTIVE ====="
+sudo systemctl status kafka --no-pager -l || true
+sudo journalctl -u kafka -n 30 --no-pager || true
+exit 1
