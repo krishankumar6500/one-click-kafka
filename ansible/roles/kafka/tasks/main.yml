@@ -92,7 +92,8 @@
       format
       -t {{ kafka_cluster_id }}
       -c {{ kafka_config_dir }}/server.properties
-  become_user: "{{ kafka_user }}"
+  environment:
+    HOME: /tmp
   when: not kafka_storage.stat.exists
 
 - name: Deploy Kafka systemd service
