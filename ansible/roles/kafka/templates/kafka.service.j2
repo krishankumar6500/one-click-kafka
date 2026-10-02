@@ -10,6 +10,7 @@ User={{ kafka_user }}
 Group={{ kafka_group }}
 
 Environment="JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64"
+Environment="KAFKA_HEAP_OPTS=-Xms256m -Xmx512m"
 
 ExecStart={{ kafka_install_dir }}/bin/kafka-server-start.sh {{ kafka_config_dir }}/server.properties
 ExecStop={{ kafka_install_dir }}/bin/kafka-server-stop.sh

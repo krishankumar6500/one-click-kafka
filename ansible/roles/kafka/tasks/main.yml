@@ -96,6 +96,41 @@
     HOME: /tmp
   when: not kafka_storage.stat.exists
 
+- name: Check swap file
+  ansible.builtin.stat:
+    path: /swapfile
+  register: kafka_swapfile
+
+- name: Create 2 GB swap file
+  ansible.builtin.command:
+    cmd: fallocate -l 2G /swapfile
+  when: not kafka_swapfile.stat.exists
+
+- name: Set swap file permissions
+  ansible.builtin.file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Format swap file
+  ansible.builtin.command:
+    cmd: mkswap /swapfile
+  when: not kafka_swapfile.stat.exists
+
+- name: Enable swap file
+  ansible.builtin.command:
+    cmd: swapon /swapfile
+  when: ansible_facts.swaptotal_mb | int < 1024
+
+- name: Persist swap in fstab
+  ansible.posix.mount:
+    path: none
+    src: /swapfile
+    fstype: swap
+    opts: sw
+    state: present
+
 - name: Deploy Kafka systemd service
   ansible.builtin.template:
     src: kafka.service.j2
