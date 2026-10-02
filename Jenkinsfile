@@ -141,7 +141,7 @@ pipeline {
                         echo
                         echo "Creating backup on $host"
 
-                        sudo -u jenkins ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key \
+                        ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key \
                           -o BatchMode=yes \
                           -o StrictHostKeyChecking=no \
                           ubuntu@$host \
