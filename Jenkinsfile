@@ -129,6 +129,32 @@ pipeline {
                 '''
             }
         }
+
+        stage('Kafka DR Backup') {
+            steps {
+                sh '''
+                    echo "======================================"
+                    echo "        KAFKA DR BACKUP"
+                    echo "======================================"
+
+                    for host in 172.31.27.172 172.31.20.48; do
+                        echo
+                        echo "Creating backup on $host"
+
+                        ssh -i /var/lib/jenkins/.ssh/one-click-kafka-key \
+                          -o BatchMode=yes \
+                          -o StrictHostKeyChecking=no \
+                          ubuntu@$host \
+                          "sudo /usr/local/bin/kafka-dr-backup.sh"
+
+                        echo "Backup completed on $host"
+                    done
+
+                    echo
+                    echo "===== KAFKA DR BACKUP SUCCESSFUL ====="
+                '''
+            }
+        }
     }
 
     post {
